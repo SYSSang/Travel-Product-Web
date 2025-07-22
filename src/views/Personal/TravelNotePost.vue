@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { uploadImage } from '@/api/image'
 import { ref } from 'vue'
 
 // 图片上传功能
@@ -15,15 +16,32 @@ const imageList = ref<ImageItem[]>([])
 const handleImageUpload = async (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   if (!files || files.length === 0) return
-
   const file = files[0]
   // 创建本地url预览
   const localURL = URL.createObjectURL(file)
   console.log(localURL)
-  const tmp: ImageItem = { url: localURL, uploading: true, loading: true }
+
+  const tmp: ImageItem = { url: localURL, uploading: true, loading: false }
   imageList.value.push(tmp)
 
   // 下面将文件图片上传到图床
+  const index = imageList.value.length - 1
+  try {
+    const res = await uploadImage(file)
+    console.log(res.url)
+    // tmp.url = res.url
+    // tmp.uploading = false
+    // tmp.loading = false //无法触发响应
+    imageList.value[index].url = res.url
+    imageList.value[index].uploading = false
+    imageList.value[index].loading = true
+  } catch (error) {
+    imageList.value.splice(index, 1)
+    console.error('上传失败', error)
+  }
+}
+const handleImgLoad = (index: number) => {
+  imageList.value[index].loading = false
 }
 
 // 添加地点功能
@@ -142,6 +160,7 @@ const addLocation = () => {
               :src="img.url"
               class="img-thumb"
               alt="文章图片"
+              @load="handleImgLoad(index)"
               :style="{ filter: img.loading ? 'blur(8px)' : 'none' }"
             />
             <!-- 遮罩和进度条 -->

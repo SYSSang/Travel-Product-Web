@@ -15,7 +15,7 @@ export const loginApi = (data: {
   password: string
 }): Promise<{
   token: string
-  data: Record<string, string | number>
+  user: Record<string, string | number>
 }> => {
   return post('/api/user/login', data)
 }

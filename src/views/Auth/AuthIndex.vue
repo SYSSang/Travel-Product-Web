@@ -39,7 +39,7 @@ const authHandlerSubmit = async () => {
         username: form.value.username,
         password: form.value.password,
       })
-      userStore.setToken(res.token)
+      userStore.setUser(res.token, res.user.uid as number)
       alert('登陆成功')
       router.push('/personal')
     }
