@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import { pulishArticleApi } from '@/api/article'
+import { getlocationApi } from '@/api/geo'
 import { uploadImage } from '@/api/image'
+import { PublishArticle } from '@/types/article'
 import { ref } from 'vue'
 
-// 图片上传功能
+// ————————图片上传功能
 // 假定后端传过来的图片列表
 interface ImageItem {
   url: string
@@ -12,7 +15,7 @@ interface ImageItem {
 
 const imageList = ref<ImageItem[]>([])
 
-// 点击添加按钮
+// 点击图片添加按钮
 const handleImageUpload = async (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   if (!files || files.length === 0) return
@@ -44,132 +47,220 @@ const handleImgLoad = (index: number) => {
   imageList.value[index].loading = false
 }
 
-// 添加地点功能
+//——————————添加地点功能
 // 添加文章主要城市
 const mainCity = ref('')
-const locationResult = ref<{
-  lng: number
-  lat: number
-  formatted_address: string
-} | null>(null)
-const savedLocationInfo = ref<{
-  cityName: string
+const isAddSuccess = ref(false)
+
+const mainCityResult = ref<{
   lng: number
   lat: number
   formatted_address: string
 } | null>(null)
 
 // 从后端获取主要城市信息
-const getMaincityLocation = async () => {
-  // 类似信息
-  locationResult.value = {
-    lng: 102.709372,
-    lat: 25.046432,
-    formatted_address: '云南省',
+const addLocation = async () => {
+  if (!mainCity.value.trim()) {
+    alert('请输入城市名称')
+    return
   }
-
   try {
-    // const response =
-    return locationResult
+    const res = await getlocationApi({ address: mainCity.value })
+    mainCityResult.value = res
+    isAddSuccess.value = true
   } catch (err) {
     console.log(err)
   }
 }
 
-const addLocation = () => {
-  if (!mainCity.value.trim()) {
-    alert('请输入城市名称')
+// ——————————发布文章，存储进数据库
+
+const title = ref<string>('')
+const content = ref('')
+const publishedAid = ref<number | null>(null)
+const showSuccessDialog = ref(false)
+
+const submitArticleHandler = async () => {
+  // console.log('提交文章')
+  if (!title.value.trim()) {
+    alert('请输入文章标题')
+    return
+  }
+  if (!content.value.trim()) {
+    alert('请输入文章内容')
     return
   }
 
-  // 因为后续渲染地图模块需要
-  const res = getMaincityLocation()
-  console.log(res)
+  // 数据处理，imageList和mainCity是proxy对象，传给后端应该是json格式数据
+  const publishImg = imageList.value
+    .filter(img => img.url)
+    .map(img => img.url)
+    .join(',')
+
+  const publishMaincity = JSON.stringify(mainCityResult.value)
+
+  const publishData = <PublishArticle>{
+    content: content.value,
+    title: title.value,
+    imagesUrl: publishImg,
+    mainCity: publishMaincity,
+    type: 'vlog',
+  }
+
+  try {
+    console.log('发布得文章信息：', publishData)
+    const res = await pulishArticleApi(publishData)
+
+    title.value = ''
+    content.value = ''
+    imageList.value = []
+    mainCity.value = ''
+    mainCityResult.value = null
+    isAddSuccess.value = false
+    showSuccessDialog.value = true
+
+    publishedAid.value = res.aid
+    console.log(publishedAid.value)
+  } catch (err) {
+    console.error('发布文章失败', err)
+  }
 }
+
+// ————————————进行情感分析功能
+const showAnalysisResult = ref(false)
+
+const closeDialog = () => {
+  showSuccessDialog.value = false
+}
+
+// 开始分析
+const handleEmotionMap = () => {
+  showSuccessDialog.value = false
+  showAnalysisResult.value = true
+}
+
+// 跳转至情绪地图制作
+const handleNextStep = () => {}
 </script>
 
 <template>
-  <div class="">
-    <div class="travel-note-container">
-      <!-- 左侧编辑区 -->
-      <div class="travelnote-editor-panel">
-        <div class="back-title">
-          <span class="back">&lt;</span>
-          <span class="title">记录旅游</span>
-        </div>
-        <!-- 编辑标题 -->
-        <div class="post-title-box">
-          <label for="post-travel-title">编辑标题</label>
-          <input
-            type="text"
-            id="post-travel-title"
-            placeholder="最多不超过20子"
-          />
-        </div>
-        <div class="post-content-box">
-          <label for="">编辑文章内容</label>
-          <textarea name="" id="" cols="30" rows="10"></textarea>
-        </div>
-        <div class="post-btns-box">
-          <button class="post-btn">发布</button>
-          <button class="post-review-btn">预览</button>
+  <div class="travel-note-container">
+    <!-- 发布成功弹窗 -->
+    <div v-if="showSuccessDialog" class="success-dialog-mask">
+      <div class="success-dialog">
+        <div class="dialog-content">发布成功，是否生成你的旅途情绪地图</div>
+        <div class="dialog-actions">
+          <button class="dialog-btn" @click="handleEmotionMap">确认</button>
+          <button class="dialog-btn" @click="closeDialog">取消</button>
         </div>
       </div>
-      <!-- 右侧功能区 -->
-      <div class="travelnote-side-panel">
-        <!-- 向文本添加表情 -->
-        <div class="side-emotion-tools-box tool-row">
-          <span class="post-tools-circle">😊</span>
-          <span class="post-tools-title">插入表情</span>
+    </div>
+
+    <!-- 分析结果弹窗 -->
+    <div v-if="showAnalysisResult" class="result-dialog-mask">
+      <div class="result-dialog">
+        <div class="result-content">
+          <div class="result-icon">🎉</div>
+          <div class="result-title">分析完成！</div>
+          <div class="result-message">开始制作编辑该旅途的情绪地图</div>
         </div>
-        <!-- 添加城市地标后续传递给制作情绪地图组件使用为地图渲染中心 -->
-        <div class="post-travel-direction-box tool-row">
-          <span class="post-tools-circle">📍</span>
-          <span class="post-tools-title">添加地点</span>
-          <div class="location-input-box">
-            <input
-              v-model="mainCity"
-              class="post-location-input"
-              type="text"
-              placeholder="输入文章城市省份名称"
-            />
-            <button @click="addLocation" class="post-location-btn">添加</button>
+        <div class="result-actions">
+          <!-- <button class="result-btn cancel" @click="closeAnalysisResult">取消</button> -->
+          <button class="result-btn next" @click="handleNextStep">
+            下一步
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 左侧编辑区 -->
+    <div class="travelnote-editor-panel">
+      <div class="back-title">
+        <span class="back">&lt;</span>
+        <span class="title">记录旅游</span>
+      </div>
+      <!-- 编辑标题 -->
+      <div class="post-title-box">
+        <label for="post-travel-title">编辑标题</label>
+        <input
+          v-model="title"
+          type="text"
+          id="post-travel-title"
+          placeholder="最多不超过20子"
+        />
+      </div>
+      <div class="post-content-box">
+        <label for="">编辑文章内容</label>
+        <textarea
+          v-model="content"
+          name=""
+          id=""
+          cols="30"
+          rows="10"
+        ></textarea>
+      </div>
+      <div class="post-btns-box">
+        <button @click="submitArticleHandler" class="post-btn">发布</button>
+        <button class="post-review-btn">预览</button>
+      </div>
+    </div>
+    <!-- 右侧功能区 -->
+    <div class="travelnote-side-panel">
+      <!-- 向文本添加表情 -->
+      <div class="side-emotion-tools-box tool-row">
+        <span class="post-tools-circle">😊</span>
+        <span class="post-tools-title">插入表情</span>
+      </div>
+      <!-- 添加城市地标后续传递给制作情绪地图组件使用为地图渲染中心 -->
+      <div class="post-travel-direction-box tool-row">
+        <span class="post-tools-circle">📍</span>
+        <span class="post-tools-title">添加地点</span>
+        <div class="location-input-box">
+          <input
+            v-model="mainCity"
+            class="post-location-input"
+            type="text"
+            placeholder="输入文章城市省份名称"
+          />
+
+          <button @click="addLocation" class="post-location-btn">
+            {{ isAddSuccess ? '添加成功' : '添加' }}
+          </button>
+        </div>
+      </div>
+      <!-- 上传文章的图片 -->
+      <div class="img-edit-title">
+        图片编辑
+        <span class="img-count">({{ imageList.length }}/18)</span>
+        <span class="img-tip">支持拖拽排序</span>
+      </div>
+      <!-- 图片布局 -->
+      <div class="img-grid">
+        <!-- 上传图片按钮 -->
+        <label @change="handleImageUpload" class="img-box img-upload">
+          <input type="file" style="display: none" name="" id="" />
+          <div class="img-upload-inner">
+            <div class="img-upload-icon">+</div>
+            <div class="img-upload-text">添加</div>
           </div>
-        </div>
-        <!-- 上传文章的图片 -->
-        <div class="img-edit-title">
-          图片编辑
-          <span class="img-count">({{ imageList.length }}/18)</span>
-          <span class="img-tip">支持拖拽排序</span>
-        </div>
-        <!-- 图片布局 -->
-        <div class="img-grid">
-          <!-- 上传图片按钮 -->
-          <label @change="handleImageUpload" class="img-box img-upload">
-            <input type="file" style="display: none" name="" id="" />
-            <div class="img-upload-inner">
-              <div class="img-upload-icon">+</div>
-              <div class="img-upload-text">添加</div>
-            </div>
-          </label>
-          <!-- 渲染上传图片 -->
-          <!-- 这里key的index要改成图片id -->
-          <div class="img-box" v-for="(img, index) in imageList" :key="index">
-            <img
-              v-if="img.url"
-              :src="img.url"
-              class="img-thumb"
-              alt="文章图片"
-              @load="handleImgLoad(index)"
-              :style="{ filter: img.loading ? 'blur(8px)' : 'none' }"
-            />
-            <!-- 遮罩和进度条 -->
-            <div v-if="img.uploading || img.loading" class="img-mask">
-              <div class="loader"></div>
-              <span class="img-mask-text">
-                {{ img.uploading ? '上传中...' : '加载中...' }}
-              </span>
-            </div>
+        </label>
+        <!-- 渲染上传图片 -->
+        <!-- 这里key的index要改成图片id -->
+        <div class="img-box" v-for="(img, index) in imageList" :key="index">
+          <img
+            v-if="img.url"
+            :src="img.url"
+            class="img-thumb"
+            alt="文章图片"
+            @load="handleImgLoad(index)"
+            :style="{ filter: img.loading ? 'blur(8px)' : 'none' }"
+          />
+          <!-- 遮罩和进度条 -->
+          <div v-if="img.uploading || img.loading" class="img-mask">
+            <div class="loader"></div>
+            <span class="img-mask-text">
+              {{ img.uploading ? '上传中...' : '加载中...' }}
+            </span>
           </div>
         </div>
       </div>
@@ -182,6 +273,64 @@ const addLocation = () => {
   display: flex;
   color: #333333;
   font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+.travel-note-container {
+  display: flex;
+  height: 100%;
+  /* height: 100vh; */
+  color: #333333;
+  font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+.success-dialog-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+
+  .success-dialog {
+    background: #4b6e4b;
+    color: #fff;
+    border-radius: 8px;
+    min-width: 320px;
+    min-height: 100px;
+    padding: 32px 24px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .dialog-content {
+    font-size: 18px;
+    margin-bottom: 32px;
+    text-align: left;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 32px;
+  }
+  .dialog-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    margin-left: 16px;
+    cursor: pointer;
+    outline: none;
+    padding: 0 8px;
+  }
+  .dialog-btn:hover {
+    text-decoration: underline;
+  }
 }
 
 input {
