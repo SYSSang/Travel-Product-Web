@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import EmotionLocationItem from './components/EmotionLocationItem.vue'
 import { getEmotionLocationGeoApi } from '@/api/geo'
 import { saveEmotionDataApi } from '@/api/emotionMap'
+import EmoitionMap from './components/EmoitionMap.vue'
 
 interface ProcessData {
   textEmotion: {
@@ -399,7 +400,7 @@ const confirmGenerateMap = () => {
           >
         </div>
       </div>
-      <EmotionMap :article-id="aid" height="600px" />
+      <EmoitionMap :article-id="aid" height="600px" />
     </div>
 
     <!-- 当情绪地图显示时候，只显示地图组件 -->
