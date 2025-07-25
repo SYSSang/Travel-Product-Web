@@ -1,9 +1,17 @@
 <script lang="ts" setup>
-import { pulishArticleApi } from '@/api/article'
+import {
+  getArticleDetailApi,
+  pulishArticleApi,
+  storeOriginalEmotionDataApi,
+} from '@/api/article'
+import { predictEmotionMap } from '@/api/emotionMap'
 import { getlocationApi } from '@/api/geo'
 import { uploadImage } from '@/api/image'
 import { PublishArticle } from '@/types/article'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 // ————————图片上传功能
 // 假定后端传过来的图片列表
@@ -134,13 +142,65 @@ const closeDialog = () => {
 }
 
 // 开始分析
-const handleEmotionMap = () => {
+const handleEmotionMap = async () => {
   showSuccessDialog.value = false
   showAnalysisResult.value = true
+
+  let res = null
+  if (!publishedAid.value) return
+
+  // 获取文章信息
+  try {
+    res = await getArticleInfo(publishedAid.value)
+    console.log(res)
+  } catch (err) {
+    console.error('获取文章信息失败', err)
+    return
+  }
+
+  // 情绪分析
+  let analysisRes = null
+  try {
+    if (res) {
+      analysisRes = await predictEmotionMap(res.content, res.imagesUrl)
+      console.log(analysisRes)
+    }
+  } catch (err) {
+    console.error('情绪分析失败：', err)
+    return
+  }
+
+  // 情绪分析结果存储
+  try {
+    await storeOriginalEmotionDataApi(
+      publishedAid.value,
+      JSON.stringify(analysisRes)
+    )
+  } catch (err) {
+    console.error('原始情绪数据存储失败：', err)
+  }
+}
+
+const getArticleInfo = async (aid: number) => {
+  try {
+    const res = await getArticleDetailApi(aid)
+    console.log(res)
+    return res
+  } catch (err) {
+    console.error('获取文章信息失败：', err)
+  }
 }
 
 // 跳转至情绪地图制作
-const handleNextStep = () => {}
+const handleNextStep = () => {
+  // 跳转到制作情绪地图并传递aid
+  router.push({
+    name: 'EmotionMapMake',
+    query: {
+      articleID: publishedAid.value,
+    },
+  })
+}
 </script>
 
 <template>
@@ -329,6 +389,67 @@ const handleNextStep = () => {}
     padding: 0 8px;
   }
   .dialog-btn:hover {
+    text-decoration: underline;
+  }
+}
+
+.result-dialog-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+.result-dialog {
+  background: #4b6e4b;
+  color: #fff;
+  border-radius: 8px;
+  min-width: 320px;
+  min-height: 100px;
+  padding: 32px 24px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  .result-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .result-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  .result-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+  .result-message {
+    color: #bdbdbd;
+    font-size: 13px;
+  }
+  .result-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 32px;
+  }
+  .result-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    margin-left: 16px;
+    cursor: pointer;
+    outline: none;
+    padding: 0 8px;
+  }
+  .result-btn:hover {
     text-decoration: underline;
   }
 }

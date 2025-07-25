@@ -9,7 +9,7 @@ import type {
 // 创建axios实例
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: 'http://127.0.0.1:3005',
-  timeout: 10000,
+  timeout: 50000,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -31,8 +31,32 @@ axiosInstance.interceptors.request.use(
 )
 
 // 响应拦截器
+// axiosInstance.interceptors.response.use(
+//   (res: AxiosResponse) => {
+//     const { status, data, message } = res.data
+//     if (status === 1) {
+//       return data
+//     }
+//     return Promise.reject({ status, message, data })
+//   },
+//   (err: AxiosError) => {
+//     return Promise.reject(err)
+//   }
+// )
+// 响应拦截器
 axiosInstance.interceptors.response.use(
-  (res: AxiosResponse) => {
+  (
+    res: AxiosResponse<
+      any,
+      InternalAxiosRequestConfig & { bypassResponseInterceptor?: boolean }
+    >
+  ) => {
+    // 如果配置了 bypassResponseInterceptor，则直接返回完整响应数据
+    if (res.config.bypassResponseInterceptor) {
+      return res.data
+    }
+
+    // 正常处理逻辑
     const { status, data, message } = res.data
     if (status === 1) {
       return data

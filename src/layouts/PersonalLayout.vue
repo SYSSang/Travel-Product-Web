@@ -27,6 +27,7 @@ import SideNavBar from '@/components/layout/SideNavBar.vue'
 .personal-main-container {
   flex: 1;
   display: flex;
+  overflow: hidden;
 
   .side-nav-container {
     flex: 1;
