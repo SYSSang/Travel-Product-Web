@@ -1,104 +1,136 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 // import Quill from 'quill'
-import 'quill/dist/quill.snow.css'
+// import 'quill/dist/quill.snow.css'
 import EachPath from './components/EachPath.vue'
-
-// onMounted(() => {
-//   // 获取dom需要在mounted后
-//   const quill = new Quill('#editor', {
-//     theme: 'snow',
-//     modules: { toolbar: '#toolbar' },
-//   })
-// })
-
-// 交通方式
-interface Traffic {
-  type: string
-  price: number
-  time: string
-  stater?: string // 首发
-  over?: string // 末班
-}
-
-// 一级路程单段路径数据结构
-interface Path {
-  id: number
-  from: string
-  to: string
-  // time: string // 出行时间
-  start?: string // 出发时间
-  end?: string // 到达时间
-  distance?: number // 两地距离
-  content?: string // 内容
-  images?: string[]
-  notes?: string[]
-  traffic?: Traffic[] // 交通选项
-}
-
-// // 二级路程单段路径数据结构
-// interface SecondPath {
-//   id: string
-//   from: string
-//   to: string
-//   time: string
-//   distance: number // 两地距离
-// }
+import { yFirstPath, connectionStatus } from '@/stores/userYjsStore'
+import type { Path } from '@/types/path'
+import * as Y from 'yjs'
 
 // ————————创建者初始创建行程
 const startPlan = ref(false)
 const firstPath = ref<Path[]>([])
-// const fromTmp = ref('')
-// const toTmp = ref('')
-// const startTmp = ref('')
-// const endTmp = ref('')
-// // const distanceTmp = ref(0)
-// // const contentTmp = ref('')
-// // const imagesTmp = ref([])
-// // const notesTmp = ref([])
-// // const trafficTmp = ref([])
-// // 创建行程
-// const addPath = () => {
-//   if (!startPlan.value) {
-//     startPlan.value = true
-//   }
 
-//   firstPath.value.push({
-//     from: fromTmp.value,
-//     to: toTmp.value,
-//     start: startTmp.value,
-//     end: endTmp.value,
-//   })
-// }
+// 监听协同数据更新到vue当中
+onMounted(() => {
+  firstPath.value = yFirstPath.toArray().map(item => item.toJSON()) as Path[]
+
+  yFirstPath.observe(() => {
+    firstPath.value = yFirstPath.toArray().map(item => item.toJSON()) as Path[]
+  })
+})
 
 // 生成唯一ID
 let nextId = 1
 
 // 添加新的行程段
+// const addNewPath = () => {
+//   firstPath.value.push({
+//     id: nextId++,
+//     from: '',
+//     to: '',
+//     start: '',
+//     end: '',
+//   })
+// }
 const addNewPath = () => {
-  firstPath.value.push({
-    id: nextId++,
-    from: '',
-    to: '',
-    start: '',
-    end: '',
-  })
+  const yMap = new Y.Map()
+  yMap.set('id', Date.now())
+  yMap.set('from', '')
+  yMap.set('to', '')
+  yMap.set('start', '')
+  yMap.set('end', '')
+  yMap.set('content', '')
+  yMap.set('traffic', new Y.Array())
+  yFirstPath.push([yMap] as any)
 }
 
-// 更新行程信息
-const updatePathInfo = (index: number, updatedPath: any) => {
-  firstPath.value[index] = updatedPath
+// // 更新行程信息
+// const updatePathInfo = (index: number, updatedPath: any) => {
+//   firstPath.value[index] = updatedPath
+// }
+
+const updatePathInfo = (index: number, updatedPath: Path) => {
+  const yMap = yFirstPath.get(index)
+  if (yMap) {
+    yMap.set('from', updatedPath.from as any)
+    yMap.set('to', updatedPath.to as any)
+    yMap.set('start', updatedPath.start as any)
+    yMap.set('end', updatedPath.end as any)
+    yMap.set('content', updatedPath.content as any)
+
+    // 更新交通方式数据
+    if (updatedPath.traffic) {
+      const yTrafficArray = yMap.get('traffic') as any
+      if (yTrafficArray && yTrafficArray instanceof Y.Array) {
+        // 清空现有数据
+        yTrafficArray.delete(0, yTrafficArray.length)
+        // 添加新数据
+        updatedPath.traffic.forEach(traffic => {
+          const yTrafficMap = new Y.Map()
+          yTrafficMap.set('type', traffic.type as any)
+          yTrafficMap.set('price', traffic.price as any)
+          yTrafficMap.set('time', traffic.time as any)
+          yTrafficMap.set('staterDate', traffic.staterDate as any)
+          yTrafficMap.set('staterTime', traffic.staterTime as any)
+          yTrafficMap.set('overDate', traffic.overDate as any)
+          yTrafficMap.set('overTime', traffic.overTime as any)
+          yTrafficArray.push([yTrafficMap] as any)
+        })
+      }
+    }
+  }
 }
 
-// 删除行程段
+// // 删除行程段
+// const deletePath = (index: number) => {
+//   firstPath.value.splice(index, 1)
+// }
 const deletePath = (index: number) => {
-  firstPath.value.splice(index, 1)
+  yFirstPath.delete(index, 1)
+}
+
+// 获取指定索引的交通方式 Yjs 数组
+const getYTrafficArray = (index: number) => {
+  const yMap = yFirstPath.get(index)
+  if (yMap) {
+    return yMap.get('traffic') as any
+  }
+  return undefined
+}
+
+// 重连函数
+const reconnect = () => {
+  // 这里可以重新初始化连接
+  window.location.reload()
 }
 </script>
 
 <template>
   <div class="make-plan-container">
     <h1>制定旅游攻略</h1>
+
+    <!-- 连接状态显示 -->
+    <div class="connection-status">
+      <div v-if="connectionStatus.connecting" class="status connecting">
+        <span class="status-dot connecting"></span>
+        正在连接协同服务器...
+      </div>
+      <div v-else-if="connectionStatus.connected" class="status connected">
+        <span class="status-dot connected"></span>
+        已连接 - 实时协同编辑已启用
+      </div>
+      <div v-else-if="connectionStatus.error" class="status error">
+        <span class="status-dot error"></span>
+        连接失败: {{ connectionStatus.error }}
+        <button @click="reconnect" class="reconnect-btn">重连</button>
+      </div>
+      <div v-else class="status disconnected">
+        <span class="status-dot disconnected"></span>
+        未连接 - 请检查服务器状态
+      </div>
+    </div>
+
     <div v-if="true" class="invite-container">
       <span>邀请用户一起编辑旅游攻略</span>
       <button class="invite-btn">邀请</button>
@@ -125,7 +157,7 @@ const deletePath = (index: number) => {
       </div>
       <div @click="addPath" class="start-btn">开始创建</div>
     </div> -->
-    <div v-else class="make-each-path-container">
+    <div class="make-each-path-container">
       <div class="path-header">
         <h2>创建行程</h2>
         <button @click="addNewPath" class="add-path-btn">
@@ -148,6 +180,7 @@ const deletePath = (index: number) => {
         v-for="(pathInfo, index) in firstPath"
         :key="pathInfo.id"
         :pathInfo="pathInfo"
+        :yTrafficArray="getYTrafficArray(index)"
         @update:pathInfo="updatedPath => updatePathInfo(index, updatedPath)"
         @delete="() => deletePath(index)"
       ></EachPath>
@@ -338,7 +371,89 @@ const deletePath = (index: number) => {
   cursor: pointer;
   transition: background 0.2s;
 }
-// .make-plan-actions button:hover {
-//   // background: darken(#4b7452, 8%);
-// }
+
+// 连接状态样式
+.connection-status {
+  margin-bottom: 16px;
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+
+      &.connected {
+        background: #4caf50;
+      }
+
+      &.connecting {
+        background: #ff9800;
+        animation: pulse 1.5s infinite;
+      }
+
+      &.error {
+        background: #f44336;
+      }
+
+      &.disconnected {
+        background: #9e9e9e;
+      }
+    }
+
+    &.connected {
+      background: rgba(76, 175, 80, 0.1);
+      color: #2e7d32;
+    }
+
+    &.connecting {
+      background: rgba(255, 152, 0, 0.1);
+      color: #e65100;
+    }
+
+    &.error {
+      background: rgba(244, 67, 54, 0.1);
+      color: #c62828;
+    }
+
+    &.disconnected {
+      background: rgba(158, 158, 158, 0.1);
+      color: #424242;
+    }
+
+    .reconnect-btn {
+      margin-left: auto;
+      background: $second-color;
+      color: $second-font-color;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+
+      &:hover {
+        background: darken($second-color, 8%);
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
 </style>

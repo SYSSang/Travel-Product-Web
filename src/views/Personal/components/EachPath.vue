@@ -7,6 +7,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  yTrafficArray: {
+    type: Object,
+    required: false,
+  },
 })
 
 const emit = defineEmits(['update:pathInfo', 'delete'])
@@ -31,6 +35,7 @@ const localPathInfo = ref<any>({
 // 更新父组件数据
 const updatePathInfo = (field: string, value: any) => {
   localPathInfo.value[field] = value
+  // 立即触发协同编辑更新
   emit('update:pathInfo', { ...localPathInfo.value })
 }
 
@@ -45,6 +50,11 @@ const cancelEdit = () => {
   localPathInfo.value = { ...props.pathInfo }
   isEditing.value = false
 }
+
+// 获取交通方式的 Yjs 数组（用于协同编辑）
+const yTrafficArray = computed(() => {
+  return props.yTrafficArray as any
+})
 </script>
 
 <template>
@@ -59,6 +69,7 @@ const cancelEdit = () => {
           v-else
           v-model="localPathInfo.from"
           @input="updatePathInfo('from', localPathInfo.from)"
+          @change="updatePathInfo('from', localPathInfo.from)"
           class="path-title-input"
           placeholder="起始点"
         />
@@ -70,6 +81,7 @@ const cancelEdit = () => {
           v-else
           v-model="localPathInfo.to"
           @input="updatePathInfo('to', localPathInfo.to)"
+          @change="updatePathInfo('to', localPathInfo.to)"
           class="path-title-input"
           placeholder="终点"
         />
@@ -83,6 +95,7 @@ const cancelEdit = () => {
           v-else
           v-model="localPathInfo.start"
           @input="updatePathInfo('start', localPathInfo.start)"
+          @change="updatePathInfo('start', localPathInfo.start)"
           class="path-time-input"
           type="date"
         />
@@ -94,6 +107,7 @@ const cancelEdit = () => {
           v-else
           v-model="localPathInfo.end"
           @input="updatePathInfo('end', localPathInfo.end)"
+          @change="updatePathInfo('end', localPathInfo.end)"
           class="path-time-input"
           type="date"
         />
@@ -160,6 +174,8 @@ const cancelEdit = () => {
       <div class="path-detail-item">
         <label for="">行程内容</label>
         <textarea
+          v-model="localPathInfo.content"
+          @input="updatePathInfo('content', localPathInfo.content)"
           placeholder="请详细描述这段行程的内容，包括景点、活动等..."
           rows="4"
         ></textarea>
@@ -168,6 +184,7 @@ const cancelEdit = () => {
         <TrafficEditor
           v-model="localPathInfo.traffic"
           @update:modelValue="traffic => updatePathInfo('traffic', traffic)"
+          :yTrafficArray="yTrafficArray"
         />
       </div>
       <div class="detail-actions">

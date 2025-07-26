@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
+import * as Y from 'yjs'
+import type { Traffic } from '@/types/path'
 
 // 交通方式选项
 const trafficOptions = [
@@ -15,18 +17,9 @@ const trafficOptions = [
   { value: 'walk', label: '步行' },
 ]
 
-interface Traffic {
-  type: string
-  price: number
-  time: string
-  staterDate?: string
-  staterTime?: string
-  overDate?: string
-  overTime?: string
-}
-
 const props = defineProps<{
   modelValue: Traffic[]
+  yTrafficArray?: Y.Array<any> // 协同编辑的交通方式数组
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +28,9 @@ const emit = defineEmits<{
 
 // 本地交通方式数据
 const localTraffic = ref<Traffic[]>([...props.modelValue])
+
+// 协同编辑相关
+let yTrafficArray: any = null
 
 // 监听外部数据变化
 watch(
@@ -47,7 +43,7 @@ watch(
 
 // 添加交通方式
 const addTraffic = () => {
-  localTraffic.value.push({
+  const newTraffic = {
     type: '',
     price: 0,
     time: '',
@@ -55,19 +51,50 @@ const addTraffic = () => {
     staterTime: '',
     overDate: '',
     overTime: '',
-  })
+  }
+
+  localTraffic.value.push(newTraffic)
+
+  // 协同编辑：添加到 Yjs 数组
+  if (yTrafficArray) {
+    const yTrafficMap = new Y.Map()
+    yTrafficMap.set('type', newTraffic.type as any)
+    yTrafficMap.set('price', newTraffic.price as any)
+    yTrafficMap.set('time', newTraffic.time as any)
+    yTrafficMap.set('staterDate', newTraffic.staterDate as any)
+    yTrafficMap.set('staterTime', newTraffic.staterTime as any)
+    yTrafficMap.set('overDate', newTraffic.overDate as any)
+    yTrafficMap.set('overTime', newTraffic.overTime as any)
+    yTrafficArray.push([yTrafficMap] as any)
+  }
+
   updateParent()
 }
 
 // 删除交通方式
 const removeTraffic = (index: number) => {
   localTraffic.value.splice(index, 1)
+
+  // 协同编辑：从 Yjs 数组删除
+  if (yTrafficArray) {
+    yTrafficArray.delete(index, 1)
+  }
+
   updateParent()
 }
 
 // 更新交通方式数据
 const updateTraffic = (index: number, field: keyof Traffic, value: any) => {
   ;(localTraffic.value[index] as any)[field] = value
+
+  // 协同编辑：更新 Yjs 数组中的数据
+  if (yTrafficArray && yTrafficArray.get(index)) {
+    const yTrafficMap = yTrafficArray.get(index) as any
+    if (yTrafficMap && yTrafficMap instanceof Y.Map) {
+      yTrafficMap.set(field, value as any)
+    }
+  }
+
   updateParent()
 }
 
@@ -75,6 +102,24 @@ const updateTraffic = (index: number, field: keyof Traffic, value: any) => {
 const updateParent = () => {
   emit('update:modelValue', [...localTraffic.value])
 }
+
+// 初始化协同编辑
+const initCollaborativeEditing = () => {
+  if (props.yTrafficArray) {
+    yTrafficArray = props.yTrafficArray
+
+    // 监听 Yjs 数组变化
+    yTrafficArray.observe(() => {
+      localTraffic.value = yTrafficArray
+        .toArray()
+        .map((item: any) => item.toJSON()) as Traffic[]
+    })
+  }
+}
+
+onMounted(() => {
+  initCollaborativeEditing()
+})
 </script>
 
 <template>
