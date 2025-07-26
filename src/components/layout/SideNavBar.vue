@@ -31,6 +31,14 @@
       <router-link
         class="side-menu-item"
         active-class="side-menu-item-active"
+        to="/personal/make-plan"
+      >
+        <span class="icon">💬</span>
+        <span class="text">制定攻略</span>
+      </router-link>
+      <router-link
+        class="side-menu-item"
+        active-class="side-menu-item-active"
         to="/personal/emotion-map-make"
       >
         <span class="icon">🗺️</span>
