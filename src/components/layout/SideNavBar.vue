@@ -60,6 +60,14 @@
         <span class="icon">⚙️</span>
         <span class="text">个人设置</span>
       </router-link>
+      <router-link
+        class="side-menu-item"
+        active-class="side-menu-item-active"
+        to="/personal/test"
+      >
+        <span class="icon">🔄</span>
+        <span class="text">测试同步</span>
+      </router-link>
     </nav>
   </div>
 </template>

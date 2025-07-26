@@ -1,19 +1,23 @@
 <script lang="ts" setup>
-import { defineProps, defineEmits, ref, computed } from 'vue'
+import {
+  defineProps,
+  defineEmits,
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+} from 'vue'
 import TrafficEditor from './TrafficEditor.vue'
+import * as Y from 'yjs'
 
 const props = defineProps({
-  pathInfo: {
-    type: Object,
-    required: true,
-  },
+  yjsMap: { type: Object, required: true }, // 直接传 Y.Map<any>
   yTrafficArray: {
-    type: Object,
+    type: Object as () => Y.Array<any> | undefined,
     required: false,
   },
 })
-
-const emit = defineEmits(['update:pathInfo', 'delete'])
+const emit = defineEmits(['delete'])
 
 const isExpandDetail = ref(false)
 const isEditing = ref(false)
@@ -22,38 +26,69 @@ const toggleExpand = () => {
   isExpandDetail.value = !isExpandDetail.value
 }
 
-const toggleEdit = () => {
-  isEditing.value = !isEditing.value
-}
+// 强制刷新，确保多端同步
+const forceUpdate = ref(0)
+let observer: any
 
-// 本地编辑数据
-const localPathInfo = ref<any>({
-  ...props.pathInfo,
-  traffic: props.pathInfo.traffic || [],
+// 直接协同字段
+const from = computed({
+  get: () => {
+    forceUpdate.value // 建立依赖关系
+    return props.yjsMap ? props.yjsMap.get('from') || '' : ''
+  },
+  set: v => {
+    if (props.yjsMap) props.yjsMap.set('from', v)
+  },
+})
+const to = computed({
+  get: () => {
+    forceUpdate.value // 建立依赖关系
+    return props.yjsMap ? props.yjsMap.get('to') || '' : ''
+  },
+  set: v => {
+    if (props.yjsMap) props.yjsMap.set('to', v)
+  },
+})
+const start = computed({
+  get: () => {
+    forceUpdate.value // 建立依赖关系
+    return props.yjsMap ? props.yjsMap.get('start') || '' : ''
+  },
+  set: v => {
+    if (props.yjsMap) props.yjsMap.set('start', v)
+  },
+})
+const end = computed({
+  get: () => {
+    forceUpdate.value // 建立依赖关系
+    return props.yjsMap ? props.yjsMap.get('end') || '' : ''
+  },
+  set: v => {
+    if (props.yjsMap) props.yjsMap.set('end', v)
+  },
+})
+const content = computed({
+  get: () => {
+    forceUpdate.value // 建立依赖关系
+    return props.yjsMap ? props.yjsMap.get('content') || '' : ''
+  },
+  set: v => {
+    if (props.yjsMap) props.yjsMap.set('content', v)
+  },
 })
 
-// 更新父组件数据
-const updatePathInfo = (field: string, value: any) => {
-  localPathInfo.value[field] = value
-  // 立即触发协同编辑更新
-  emit('update:pathInfo', { ...localPathInfo.value })
-}
-
-// 保存编辑
-const saveEdit = () => {
-  emit('update:pathInfo', { ...localPathInfo.value })
-  isEditing.value = false
-}
-
-// 取消编辑
-const cancelEdit = () => {
-  localPathInfo.value = { ...props.pathInfo }
-  isEditing.value = false
-}
-
-// 获取交通方式的 Yjs 数组（用于协同编辑）
-const yTrafficArray = computed(() => {
-  return props.yTrafficArray as any
+onMounted(() => {
+  if (props.yjsMap) {
+    observer = () => {
+      forceUpdate.value++
+    }
+    props.yjsMap.observe(observer)
+  }
+})
+onBeforeUnmount(() => {
+  if (props.yjsMap && observer) {
+    props.yjsMap.unobserve(observer)
+  }
 })
 </script>
 
@@ -62,81 +97,27 @@ const yTrafficArray = computed(() => {
     <div class="path-header">
       <div class="path-title-box" @click="toggleExpand">
         <span class="path-title">行程：</span>
-        <div v-if="!isEditing" class="path-title-from">
-          {{ localPathInfo.from || '未设置' }}
-        </div>
         <input
-          v-else
-          v-model="localPathInfo.from"
-          @input="updatePathInfo('from', localPathInfo.from)"
-          @change="updatePathInfo('from', localPathInfo.from)"
           class="path-title-input"
+          type="text"
+          v-model="from"
           placeholder="起始点"
         />
         <span class="path-title-arrow">→</span>
-        <div v-if="!isEditing" class="path-title-to">
-          {{ localPathInfo.to || '未设置' }}
-        </div>
         <input
-          v-else
-          v-model="localPathInfo.to"
-          @input="updatePathInfo('to', localPathInfo.to)"
-          @change="updatePathInfo('to', localPathInfo.to)"
           class="path-title-input"
+          type="text"
+          v-model="to"
           placeholder="终点"
         />
       </div>
       <div class="path-time-box">
         <span class="path-title">时间：</span>
-        <div v-if="!isEditing" class="path-time-start">
-          {{ localPathInfo.start || '未设置' }}
-        </div>
-        <input
-          v-else
-          v-model="localPathInfo.start"
-          @input="updatePathInfo('start', localPathInfo.start)"
-          @change="updatePathInfo('start', localPathInfo.start)"
-          class="path-time-input"
-          type="date"
-        />
+        <input v-model="start" class="path-time-input" type="date" />
         <span class="path-time-arrow">→</span>
-        <div v-if="!isEditing" class="path-time-end">
-          {{ localPathInfo.end || '未设置' }}
-        </div>
-        <input
-          v-else
-          v-model="localPathInfo.end"
-          @input="updatePathInfo('end', localPathInfo.end)"
-          @change="updatePathInfo('end', localPathInfo.end)"
-          class="path-time-input"
-          type="date"
-        />
+        <input v-model="end" class="path-time-input" type="date" />
       </div>
       <div class="path-actions">
-        <button
-          v-if="!isEditing"
-          @click="toggleEdit"
-          class="edit-btn"
-          title="编辑"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-            ></path>
-            <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
-        <div v-else class="edit-actions">
-          <button @click="saveEdit" class="save-edit-btn">✓</button>
-          <button @click="cancelEdit" class="cancel-edit-btn">✗</button>
-        </div>
         <button @click="emit('delete')" class="delete-btn" title="删除行程段">
           <svg
             width="14"
@@ -174,22 +155,16 @@ const yTrafficArray = computed(() => {
       <div class="path-detail-item">
         <label for="">行程内容</label>
         <textarea
-          v-model="localPathInfo.content"
-          @input="updatePathInfo('content', localPathInfo.content)"
+          v-model="content"
           placeholder="请详细描述这段行程的内容，包括景点、活动等..."
           rows="4"
         ></textarea>
       </div>
       <div class="path-detail-item">
         <TrafficEditor
-          v-model="localPathInfo.traffic"
-          @update:modelValue="traffic => updatePathInfo('traffic', traffic)"
+          :modelValue="props.yjsMap.get('traffic')?.toArray() || []"
           :yTrafficArray="yTrafficArray"
         />
-      </div>
-      <div class="detail-actions">
-        <button class="save-btn">保存</button>
-        <button class="cancel-btn">取消</button>
       </div>
     </div>
   </div>
@@ -296,19 +271,22 @@ const yTrafficArray = computed(() => {
   // }
 
   .path-time-arrow {
-    color: #919191;
-    font-size: 0.9rem;
+    color: $second-color;
+    font-weight: bold;
+    font-size: 1.2rem;
   }
 
   .path-time-input {
-    background: #f0f2f5;
+    // background: #4b7452;
     color: $primary-font-color;
     border: none;
     border-radius: 4px;
     padding: 4px 8px;
     font-size: 0.85rem;
-    font-weight: 500;
-    width: 120px;
+    font-weight: 600;
+    width: 130px;
+    border: 2px solid #4b7452;
+    // color: white;
 
     &:focus {
       outline: none;

@@ -8,31 +8,23 @@ import type { Path } from '@/types/path'
 import * as Y from 'yjs'
 
 // ————————创建者初始创建行程
-const startPlan = ref(false)
 const firstPath = ref<Path[]>([])
 
 // 监听协同数据更新到vue当中
 onMounted(() => {
+  console.log('🚀 Plan.vue 初始化协同编辑监听')
   firstPath.value = yFirstPath.toArray().map(item => item.toJSON()) as Path[]
+  console.log('📊 初始 firstPath:', firstPath.value)
 
+  // 监听 Yjs 数据变化
   yFirstPath.observe(() => {
+    console.log('🔄 Yjs 数据变化，更新 firstPath')
     firstPath.value = yFirstPath.toArray().map(item => item.toJSON()) as Path[]
+    console.log('📊 更新后的 firstPath:', firstPath.value)
   })
 })
 
 // 生成唯一ID
-let nextId = 1
-
-// 添加新的行程段
-// const addNewPath = () => {
-//   firstPath.value.push({
-//     id: nextId++,
-//     from: '',
-//     to: '',
-//     start: '',
-//     end: '',
-//   })
-// }
 const addNewPath = () => {
   const yMap = new Y.Map()
   yMap.set('id', Date.now())
@@ -46,46 +38,43 @@ const addNewPath = () => {
 }
 
 // // 更新行程信息
-// const updatePathInfo = (index: number, updatedPath: any) => {
-//   firstPath.value[index] = updatedPath
+// const updatePathInfo = (index: number, updatedPath: Path) => {
+//   console.log('🔄 更新行程信息:', index, updatedPath)
+//   const yMap = yFirstPath.get(index)
+//   if (yMap) {
+//     yMap.set('from', updatedPath.from)
+//     yMap.set('to', updatedPath.to)
+//     yMap.set('start', updatedPath.start)
+//     yMap.set('end', updatedPath.end)
+//     yMap.set('content', updatedPath.content)
+
+//     // 更新交通方式数据
+//     if (updatedPath.traffic) {
+//       const yTrafficArray = yMap.get('traffic')
+//       if (yTrafficArray && yTrafficArray instanceof Y.Array) {
+//         // 清空现有数据
+//         yTrafficArray.delete(0, yTrafficArray.length)
+//         // 添加新数据
+//         updatedPath.traffic.forEach(traffic => {
+//           const yTrafficMap = new Y.Map()
+//           yTrafficMap.set('type', traffic.type)
+//           yTrafficMap.set('price', traffic.price)
+//           yTrafficMap.set('time', traffic.time)
+//           yTrafficMap.set('staterDate', traffic.staterDate)
+//           yTrafficMap.set('staterTime', traffic.staterTime)
+//           yTrafficMap.set('overDate', traffic.overDate)
+//           yTrafficMap.set('overTime', traffic.overTime)
+//           yTrafficArray.push([yTrafficMap])
+//         })
+//       }
+//     }
+//     console.log('✅ Yjs 数据已更新')
+//   } else {
+//     console.error('❌ 未找到 Yjs Map:', index)
+//   }
 // }
-
-const updatePathInfo = (index: number, updatedPath: Path) => {
-  const yMap = yFirstPath.get(index)
-  if (yMap) {
-    yMap.set('from', updatedPath.from as any)
-    yMap.set('to', updatedPath.to as any)
-    yMap.set('start', updatedPath.start as any)
-    yMap.set('end', updatedPath.end as any)
-    yMap.set('content', updatedPath.content as any)
-
-    // 更新交通方式数据
-    if (updatedPath.traffic) {
-      const yTrafficArray = yMap.get('traffic') as any
-      if (yTrafficArray && yTrafficArray instanceof Y.Array) {
-        // 清空现有数据
-        yTrafficArray.delete(0, yTrafficArray.length)
-        // 添加新数据
-        updatedPath.traffic.forEach(traffic => {
-          const yTrafficMap = new Y.Map()
-          yTrafficMap.set('type', traffic.type as any)
-          yTrafficMap.set('price', traffic.price as any)
-          yTrafficMap.set('time', traffic.time as any)
-          yTrafficMap.set('staterDate', traffic.staterDate as any)
-          yTrafficMap.set('staterTime', traffic.staterTime as any)
-          yTrafficMap.set('overDate', traffic.overDate as any)
-          yTrafficMap.set('overTime', traffic.overTime as any)
-          yTrafficArray.push([yTrafficMap] as any)
-        })
-      }
-    }
-  }
-}
 
 // // 删除行程段
-// const deletePath = (index: number) => {
-//   firstPath.value.splice(index, 1)
-// }
 const deletePath = (index: number) => {
   yFirstPath.delete(index, 1)
 }
@@ -94,10 +83,13 @@ const deletePath = (index: number) => {
 const getYTrafficArray = (index: number) => {
   const yMap = yFirstPath.get(index)
   if (yMap) {
-    return yMap.get('traffic') as any
+    return yMap.get('traffic')
   }
   return undefined
 }
+
+// 获取指定索引的 Yjs Map
+const getYjsMap = (index: number) => yFirstPath.get(index)
 
 // 重连函数
 const reconnect = () => {
@@ -134,29 +126,8 @@ const reconnect = () => {
     <div v-if="true" class="invite-container">
       <span>邀请用户一起编辑旅游攻略</span>
       <button class="invite-btn">邀请</button>
+      <!-- <button @click="testYjsSync" class="test-btn">测试同步</button> -->
     </div>
-    <!-- <div v-if="!startPlan" class="start-container">
-      <div class="start-item">
-        <label for="">起始点</label>
-        <input
-          v-model="fromTmp"
-          type="text"
-          placeholder="请输入起始点"
-          required
-        />
-      </div>
-      <div class="start-item">
-        <label for="">终点</label>
-        <input v-model="toTmp" type="text" placeholder="请输入终点" required />
-      </div>
-      <div class="start-item">
-        <label for="">出行时间</label>
-        <input v-model="startTmp" type="date" />
-        <span>至</span>
-        <input v-model="endTmp" type="date" />
-      </div>
-      <div @click="addPath" class="start-btn">开始创建</div>
-    </div> -->
     <div class="make-each-path-container">
       <div class="path-header">
         <h2>创建行程</h2>
@@ -179,9 +150,8 @@ const reconnect = () => {
       <EachPath
         v-for="(pathInfo, index) in firstPath"
         :key="pathInfo.id"
-        :pathInfo="pathInfo"
+        :yjsMap="getYjsMap(index)"
         :yTrafficArray="getYTrafficArray(index)"
-        @update:pathInfo="updatedPath => updatePathInfo(index, updatedPath)"
         @delete="() => deletePath(index)"
       ></EachPath>
     </div>
@@ -441,6 +411,26 @@ const reconnect = () => {
       &:hover {
         background: darken($second-color, 8%);
       }
+    }
+  }
+}
+
+.invite-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .test-btn {
+    background: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+
+    &:hover {
+      background: #f57c00;
     }
   }
 }

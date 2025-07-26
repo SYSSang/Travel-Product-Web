@@ -49,7 +49,7 @@ provider.on('connection-error', (err: any) => {
 })
 
 // 共享数据结构
-export const yFirstPath = doc.getArray<Y.Map<Path>>('firstPath')
+export const yFirstPath = doc.getArray<Y.Map<any>>('firstPath')
 
 // 导出 provider 用于清理
 export { provider }

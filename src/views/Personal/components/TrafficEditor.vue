@@ -58,14 +58,14 @@ const addTraffic = () => {
   // 协同编辑：添加到 Yjs 数组
   if (yTrafficArray) {
     const yTrafficMap = new Y.Map()
-    yTrafficMap.set('type', newTraffic.type as any)
-    yTrafficMap.set('price', newTraffic.price as any)
-    yTrafficMap.set('time', newTraffic.time as any)
-    yTrafficMap.set('staterDate', newTraffic.staterDate as any)
-    yTrafficMap.set('staterTime', newTraffic.staterTime as any)
-    yTrafficMap.set('overDate', newTraffic.overDate as any)
-    yTrafficMap.set('overTime', newTraffic.overTime as any)
-    yTrafficArray.push([yTrafficMap] as any)
+    yTrafficMap.set('type', newTraffic.type)
+    yTrafficMap.set('price', newTraffic.price)
+    yTrafficMap.set('time', newTraffic.time)
+    yTrafficMap.set('staterDate', newTraffic.staterDate)
+    yTrafficMap.set('staterTime', newTraffic.staterTime)
+    yTrafficMap.set('overDate', newTraffic.overDate)
+    yTrafficMap.set('overTime', newTraffic.overTime)
+    yTrafficArray.push([yTrafficMap])
   }
 
   updateParent()
